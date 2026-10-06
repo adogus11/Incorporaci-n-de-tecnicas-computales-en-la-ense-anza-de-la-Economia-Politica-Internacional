@@ -1,0 +1,68 @@
+SCRIPT PARA CASO DE ESTUDIO 1: ANÁLISIS DEL IMPACTO MACROECONÓMICO DE UN CHOQUE GEOPOLÍTICO MEDIANTE LA API DEL BANCO MUNDIAL EN R / RSTUDIO
+ 
+# 0 Cargar e instalar librerías necesarias
+install.packages("wbstats")
+install.packages("tidyverse")
+install.packages("ggplot2")
+ 
+library(wbstats)
+library(tidyverse)
+library(ggplot2)
+ 
+# 1. Búsqueda de indicadores relacionados con crecimiento económico (PIB)
+wb_search(pattern = "GDP growth")
+ 
+# A partir de este código identificamos que el indicador de crecimiento porcentual anualizado del PIB es "NY.GDP.MKTP.KD.ZG".
+indicador_pib <- "NY.GDP.MKTP.KD.ZG"
+ 
+# 2. Extracción automatizada desde la API del Banco Mundial (2018 - 2025)
+datos_crudos <- wb_data(
+  country = c("RU", "UA", "DE"), # Códigos ISO-2 de Rusia, Ucrania y Alemania
+  indicator = indicador_pib,
+  start_date = 2018,
+  end_date = 2025
+)
+ 
+# Inspección inicial de la estructura cruda
+print(datos_crudos)
+ 
+# 3. Limpieza, estructuración y traducción de datos (Data Wrangling)
+datos_epi <- datos_crudos %>%
+  select(country, iso3c, date, NY.GDP.MKTP.KD.ZG) %>%
+  rename(
+	año = date,
+	gdp_growth = NY.GDP.MKTP.KD.ZG
+  ) %>%
+  mutate(
+	año = as.numeric(año),
+	pais = case_when(
+  	iso3c == "RUS" ~ "Rusia",
+  	iso3c == "UKR" ~ "Ucrania",
+  	iso3c == "DEU" ~ "Alemania",
+  	TRUE ~ country
+	)
+  ) %>%
+  filter(!is.na(gdp_growth))
+ 
+# Inspección de los datos procesados
+print(datos_epi)
+ 
+# 4. Visualización reproducible con ggplot2
+ggplot(datos_epi, aes(x = año, y = gdp_growth, color = pais, group = pais)) +
+  geom_line(linewidth = 1.2) +
+  geom_point(size = 2.5) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray50") +
+  scale_color_manual(values = c("Alemania" = "#003366", "Rusia" = "#CC0000", "Ucrania" = "#FFCC00")) +
+  scale_x_continuous(breaks = 2018:2025) +
+  labs(
+	title = "Impacto de la Guerra Ruso-Ucraniana en el Crecimiento del PIB (% Anual)",
+	subtitle = "Comparativa entre Alemania, Rusia y Ucrania (2018 - 2025)",
+	x = "Año",
+	y = "Crecimiento del PIB (% Anual)",
+	color = "País",
+	caption = "Fuente: Banco Mundial (WB) mediante el paquete 'wbstats' en R."
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+	legend.position = "bottom",
+	plot.title = element_text(face = "bold")
